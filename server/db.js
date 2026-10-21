@@ -20,6 +20,15 @@ export function openDb(file = process.env.DB_FILE || 'n5.db') {
       questions TEXT NOT NULL,
       result TEXT
     );
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS plan_done (
+      day TEXT NOT NULL,
+      task_id TEXT NOT NULL,
+      PRIMARY KEY (day, task_id)
+    );
   `);
   return db;
 }

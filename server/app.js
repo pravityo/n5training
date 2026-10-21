@@ -2,6 +2,7 @@ import express from 'express';
 import { grammar } from './content/grammar.js';
 import { vocab } from './content/vocab.js';
 import { kanji } from './content/kanji.js';
+import { buildPlan, parseDay, fmtDay, daysBetween } from './plan.js';
 import {
   grammarQuestions, vocabQuestions, kanjiQuestions, readingQuestions, listeningQuestions, buildExam, publicQuestion, gradeExam, shuffle, EXAM_PLAN,
 } from './questions.js';
@@ -25,17 +26,43 @@ export function createApp(db) {
     res.json(lesson);
   });
 
+  const weakTags = () => db.prepare('SELECT tag, COUNT(*) AS total, SUM(correct) AS correct FROM attempts GROUP BY tag HAVING total >= 3')
+    .all().sort((x, y) => x.correct / x.total - y.correct / y.total).slice(0, 5).map((r) => r.tag);
+
+  function weakQuestions(count) {
+    const tags = weakTags();
+    const grammarIds = new Set(grammar.map((g) => g.id));
+    const cats = new Set(vocab.map((v) => v.cat));
+    const pool = [];
+    for (const t of tags) {
+      if (grammarIds.has(t)) pool.push(...grammarQuestions(Math.random, t));
+      else if (t === 'kanji') pool.push(...kanjiQuestions(4));
+      else if (cats.has(t)) pool.push(...vocabQuestions(4, Math.random, t));
+    }
+    // Not enough history yet: fall back to mixed grammar so the task is still useful.
+    if (pool.length < count) pool.push(...shuffle(grammarQuestions()).slice(0, count - pool.length));
+    return shuffle(pool).slice(0, count);
+  }
+
   // Practice sessions return answers so feedback is instant; exams never do.
   app.get('/api/practice', (req, res) => {
-    const { kind = 'grammar', topic, n = '10' } = req.query;
+    const { kind = 'grammar', topic, n = '10', range, level } = req.query;
     const count = Math.min(Math.max(parseInt(n, 10) || 10, 1), 50);
+    let ids = null;
+    if (range) {
+      const m = /^(\d+)-(\d+)$/.exec(range);
+      if (!m) return res.status(400).json({ error: 'range must look like 1-40' });
+      ids = [Number(m[1]), Number(m[2])];
+    }
+    const lvl = level ? Number(level) : undefined;
     let qs;
     if (kind === 'grammar') qs = shuffle(grammarQuestions(Math.random, topic || undefined)).slice(0, count);
-    else if (kind === 'vocab') qs = vocabQuestions(count, Math.random, topic || undefined);
-    else if (kind === 'kanji') qs = kanjiQuestions(count);
+    else if (kind === 'vocab') qs = vocabQuestions(count, Math.random, topic || undefined, ids);
+    else if (kind === 'kanji') qs = kanjiQuestions(count, Math.random, { level: lvl, range: ids });
     else if (kind === 'reading') qs = readingQuestions(count);
     else if (kind === 'listening') qs = listeningQuestions(count);
-    else return res.status(400).json({ error: 'kind must be grammar, vocab, kanji, reading or listening' });
+    else if (kind === 'weak') qs = weakQuestions(count);
+    else return res.status(400).json({ error: 'kind must be grammar, vocab, kanji, reading, listening or weak' });
     res.json(qs);
   });
 
@@ -100,6 +127,44 @@ export function createApp(db) {
     `).all();
     const weak = byTag.filter((t) => t.total >= 3).sort((a, b) => a.accuracy - b.accuracy).slice(0, 5);
     res.json({ byTag, weak, exams, days });
+  });
+
+  // Study plan: settings plus per-day task completion. The schedule itself is derived, not stored.
+  const getSetting = (k) => db.prepare('SELECT value FROM settings WHERE key = ?').get(k)?.value;
+  const setSetting = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+
+  app.get('/api/plan', (req, res) => {
+    const examDay = getSetting('examDay');
+    if (!examDay) return res.json({ configured: false });
+    const startDay = getSetting('startDay');
+    const includeN4 = getSetting('includeN4') === '1';
+    const days = buildPlan({ startDay, examDay, includeN4 });
+    const done = {};
+    for (const r of db.prepare('SELECT day, task_id FROM plan_done').all()) (done[r.day] ??= []).push(r.task_id);
+    const today = parseDay(req.query.today) ? req.query.today : fmtDay(Date.now());
+    res.json({ configured: true, startDay, examDay, includeN4, today, daysToExam: daysBetween(today, examDay), days, done });
+  });
+
+  app.put('/api/plan/settings', (req, res) => {
+    const { examDay, startDay, includeN4 = false } = req.body ?? {};
+    const today = parseDay(req.body?.today) ? req.body.today : fmtDay(Date.now());
+    if (Number.isNaN(parseDay(examDay))) return res.status(400).json({ error: 'examDay must be YYYY-MM-DD' });
+    const start = startDay ?? today;
+    if (Number.isNaN(parseDay(start))) return res.status(400).json({ error: 'startDay must be YYYY-MM-DD' });
+    if (daysBetween(start, examDay) < 0) return res.status(400).json({ error: 'exam date must not be before the start date' });
+    setSetting.run('examDay', examDay);
+    setSetting.run('startDay', start);
+    setSetting.run('includeN4', includeN4 ? '1' : '0');
+    db.exec('DELETE FROM plan_done');
+    res.json({ ok: true });
+  });
+
+  app.post('/api/plan/done', (req, res) => {
+    const { day, taskId, done } = req.body ?? {};
+    if (Number.isNaN(parseDay(day)) || typeof taskId !== 'string') return res.status(400).json({ error: 'day and taskId required' });
+    if (done) db.prepare('INSERT OR IGNORE INTO plan_done (day, task_id) VALUES (?, ?)').run(day, taskId);
+    else db.prepare('DELETE FROM plan_done WHERE day = ? AND task_id = ?').run(day, taskId);
+    res.json({ ok: true });
   });
 
   return app;

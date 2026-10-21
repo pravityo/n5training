@@ -51,3 +51,8 @@ table { width: 100%; border-collapse: collapse; } th, td { text-align: left; pad
 input, select { font: inherit; padding: .5rem .75rem; border: 1px solid var(--border); border-radius: 8px; background: var(--card); color: var(--fg); margin: .25rem .25rem .25rem 0; }
 .kanji { display: flex; gap: 1rem; align-items: center; }
 .glyph { font-size: 3rem; min-width: 4rem; text-align: center; }
+.tasks { list-style: none; padding: 0; margin: .5rem 0; }
+.task { display: flex; gap: .6rem; align-items: baseline; padding: .25rem 0; }
+.task.done span:nth-child(2) { text-decoration: line-through; color: var(--muted); }
+.task a { color: inherit; }
+.task .muted { margin-left: auto; white-space: nowrap; }

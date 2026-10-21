@@ -1,3 +1,5 @@
+import { n4Rows } from './kanji-n4.js';
+
 // [char, meaning, on'yomi, kun'yomi, [[word, reading, meaning], ...]]
 const rows = [
   ['日', 'day, sun', 'ニチ・ジツ', 'ひ・か', [['日曜日', 'にちようび', 'Sunday'], ['今日', 'きょう', 'today']]],
@@ -119,6 +121,17 @@ const rows = [
   ['昼', 'daytime', 'チュウ', 'ひる', [['昼', 'ひる', 'noon']]],
 ];
 
-export const kanji = rows.map(([char, meaning, on, kun, words], i) => ({
-  id: i + 1, char, meaning, on, kun, words: words.map(([ja, kana, en]) => ({ ja, kana, en })),
+// Levels are approximate (the JLPT publishes no official kanji lists). These were taught at N4 in most study lists.
+const N4_FROM_BASE = new Set(['森', '林', '院', '病', '教', '朝', '夜', '昼', '道']);
+
+// Duplicate characters are dropped: the first entry wins, so N5 beats N4.
+const seen = new Set();
+const all = [
+  ...rows.map((r) => [...r, N4_FROM_BASE.has(r[0]) ? 4 : 5]),
+  ...n4Rows.map((r) => [...r, 4]),
+].filter(([char]) => !seen.has(char) && seen.add(char))
+  .sort((a, b) => b[5] - a[5]); // N5 first (ids 1..n), then N4. Array.sort is stable.
+
+export const kanji = all.map(([char, meaning, on, kun, words, level], i) => ({
+  id: i + 1, char, meaning, on, kun, level, words: words.map(([ja, kana, en]) => ({ ja, kana, en })),
 }));

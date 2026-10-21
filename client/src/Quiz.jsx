@@ -3,7 +3,7 @@ import { api } from './api.js';
 import QuestionView from './QuestionView.jsx';
 
 // Loads a practice set with instant feedback and records every attempt.
-export default function Quiz({ kind, topic, n = 10, onDone }) {
+export default function Quiz({ kind, topic, range, level, n = 10, onDone }) {
   const [qs, setQs] = useState(null);
   const [i, setI] = useState(0);
   const [sel, setSel] = useState(null);
@@ -11,8 +11,8 @@ export default function Quiz({ kind, topic, n = 10, onDone }) {
   const [error, setError] = useState(null);
 
   useEffect(() => {
-    api.practice(kind, topic, n).then(setQs).catch((e) => setError(e.message));
-  }, [kind, topic, n]);
+    api.practice({ kind, topic, n, range, level }).then(setQs).catch((e) => setError(e.message));
+  }, [kind, topic, n, range, level]);
 
   if (error) return <p className="error">{error}</p>;
   if (!qs) return <p>Loading…</p>;
@@ -20,7 +20,7 @@ export default function Quiz({ kind, topic, n = 10, onDone }) {
     return (
       <div className="card center">
         <h2>{score} / {qs.length} correct</h2>
-        <button className="btn primary" onClick={() => { setQs(null); setI(0); setScore(0); setSel(null); api.practice(kind, topic, n).then(setQs); }}>Another round</button>
+        <button className="btn primary" onClick={() => { setQs(null); setI(0); setScore(0); setSel(null); api.practice({ kind, topic, n, range, level }).then(setQs); }}>Another round</button>
         {onDone && <button className="btn" onClick={onDone}>Back</button>}
       </div>
     );

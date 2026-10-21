@@ -61,8 +61,10 @@ export function vocabQuestion(entry, kind, rng = Math.random) {
   }, rng);
 }
 
-export function vocabQuestions(n, rng = Math.random, category) {
-  const pool = category ? vocab.filter((v) => v.cat === category) : vocab;
+const inRange = (range) => (x) => !range || (x.id >= range[0] && x.id <= range[1]);
+
+export function vocabQuestions(n, rng = Math.random, category, range) {
+  const pool = vocab.filter((v) => (!category || v.cat === category) && inRange(range)(v));
   return pick(pool, n, rng).map((e) => {
     const kinds = e.hasKanji ? KINDS : KINDS.slice(1);
     return vocabQuestion(e, kinds[Math.floor(rng() * kinds.length)], rng);
@@ -99,9 +101,10 @@ export function kanjiQuestion(k, kind, rng = Math.random) {
   }, rng);
 }
 
-export function kanjiQuestions(n, rng = Math.random) {
+export function kanjiQuestions(n, rng = Math.random, { level, range } = {}) {
   const kinds = ['meaning', 'char', 'word'];
-  return pick(kanji, n, rng).map((k) => kanjiQuestion(k, kinds[Math.floor(rng() * kinds.length)], rng));
+  const pool = kanji.filter((k) => (!level || k.level === level) && inRange(range)(k));
+  return pick(pool, n, rng).map((k) => kanjiQuestion(k, kinds[Math.floor(rng() * kinds.length)], rng));
 }
 
 export function readingQuestions(n, rng = Math.random) {
@@ -128,7 +131,7 @@ export const EXAM_PLAN = { vocab: 15, kanji: 10, grammar: 25, reading: 8, listen
 export function buildExam(rng = Math.random, plan = EXAM_PLAN) {
   return [
     ...vocabQuestions(plan.vocab, rng),
-    ...kanjiQuestions(plan.kanji, rng),
+    ...kanjiQuestions(plan.kanji, rng, { level: 5 }),
     ...pick(grammarQuestions(rng), plan.grammar, rng),
     ...readingQuestions(plan.reading, rng),
     ...listeningQuestions(plan.listening, rng),

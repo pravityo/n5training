@@ -71,3 +71,62 @@ test('exam API hides answers, grades server-side, and records stats', async () =
     assert.ok(stats.byTag.length > 0);
   } finally { server.close(); }
 });
+
+import { buildPlan } from './plan.js';
+import { kanji } from './content/kanji.js';
+import { vocab } from './content/vocab.js';
+
+function linksOf(days, re) {
+  return days.flatMap((d) => d.tasks).map((t) => t.href).filter((h) => h && re.test(h));
+}
+
+for (const total of [1, 2, 3, 7, 30, 60, 90]) {
+  test(`plan covers all content exactly once over ${total} days`, () => {
+    const start = '2026-11-01';
+    const end = new Date(Date.parse(`${start}T00:00:00Z`) + (total - 1) * 86_400_000).toISOString().slice(0, 10);
+    const days = buildPlan({ startDay: start, examDay: end, includeN4: true });
+    assert.equal(days.length, total);
+    assert.equal(days.at(-1).phase, 'exam');
+    if (total >= 4) {
+      const grammarLinks = linksOf(days, /^\/grammar\//);
+      assert.equal(new Set(grammarLinks).size, grammar.length);
+      assert.equal(grammarLinks.length, grammar.length);
+      const vocabRanges = days.flatMap((d) => d.tasks).filter((t) => t.id === 'vocab-study').map((t) => t.href.match(/from=(\d+)&to=(\d+)/).slice(1).map(Number));
+      assert.equal(vocabRanges[0][0], 1);
+      assert.equal(vocabRanges.at(-1)[1], vocab.length);
+      for (let i = 1; i < vocabRanges.length; i++) assert.equal(vocabRanges[i][0], vocabRanges[i - 1][1] + 1);
+      const n5 = kanji.filter((k) => k.level === 5).length;
+      const kr = days.flatMap((d) => d.tasks).filter((t) => t.id === 'kanji-study').map((t) => t.href.match(/from=(\d+)&to=(\d+)/).slice(1).map(Number));
+      assert.equal(kr.at(-1)[1], n5);
+    }
+  });
+}
+
+test('plan has a mock exam in the review phase and a light day before the exam', () => {
+  const days = buildPlan({ startDay: '2026-11-01', examDay: '2027-01-15' });
+  assert.ok(days.some((d) => d.tasks.some((t) => t.id === 'mock')));
+  assert.equal(days.at(-2).phase, 'light');
+  assert.ok(days.filter((d) => d.phase === 'learn').length > days.length / 2);
+});
+
+test('plan API: settings, completion and weak-spot practice', async () => {
+  const app = createApp(openDb(':memory:'));
+  const server = app.listen(0);
+  const base = `http://localhost:${server.address().port}`;
+  const json = (m, p, b) => fetch(base + p, { method: m, headers: { 'content-type': 'application/json' }, body: b && JSON.stringify(b) });
+  try {
+    assert.equal((await (await fetch(`${base}/api/plan`)).json()).configured, false);
+    assert.equal((await json('PUT', '/api/plan/settings', { examDay: 'nope' })).status, 400);
+    assert.equal((await json('PUT', '/api/plan/settings', { examDay: '2026-12-01', today: '2026-11-01' })).status, 200);
+    const plan = await (await fetch(`${base}/api/plan?today=2026-11-01`)).json();
+    assert.equal(plan.days.length, 31);
+    assert.equal(plan.daysToExam, 30);
+    await json('POST', '/api/plan/done', { day: '2026-11-01', taskId: 'vocab-study', done: true });
+    const after = await (await fetch(`${base}/api/plan?today=2026-11-01`)).json();
+    assert.deepEqual(after.done['2026-11-01'], ['vocab-study']);
+    const weak = await (await fetch(`${base}/api/practice?kind=weak&n=6`)).json();
+    assert.equal(weak.length, 6);
+    const range = await (await fetch(`${base}/api/practice?kind=vocab&range=1-12&n=5`)).json();
+    assert.ok(range.every((q) => Number(q.key.split(':')[1]) <= 12));
+  } finally { server.close(); }
+});
