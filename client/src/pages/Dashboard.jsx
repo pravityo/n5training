@@ -6,7 +6,9 @@ const pct = (x) => `${Math.round(x * 100)}%`;
 
 export default function Dashboard() {
   const [s, setS] = useState(null);
+  const [grammarIds, setGrammarIds] = useState(new Set());
   useEffect(() => { api.stats().then(setS).catch(() => setS({ byTag: [], weak: [], exams: [], days: [] })); }, []);
+  useEffect(() => { api.grammarList().then((l) => setGrammarIds(new Set(l.map((g) => g.id)))).catch(() => {}); }, []);
   if (!s) return <p>Loading…</p>;
   const total = s.byTag.reduce((a, t) => a + t.total, 0);
   const correct = s.byTag.reduce((a, t) => a + t.correct, 0);
@@ -24,7 +26,7 @@ export default function Dashboard() {
         <div className="card">
           {s.weak.map((t) => (
             <div key={t.tag} className="bar-row">
-              <Link to={`/grammar/${t.tag}`} className="bar-label">{t.tag}</Link>
+              {grammarIds.has(t.tag) ? <Link to={`/grammar/${t.tag}`} className="bar-label">{t.tag}</Link> : <span className="bar-label">{t.tag}</span>}
               <div className="bar"><div style={{ width: pct(t.accuracy) }} /></div>
               <span className="muted">{pct(t.accuracy)} of {t.total}</span>
             </div>

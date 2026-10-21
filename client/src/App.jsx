@@ -3,6 +3,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import { GrammarList, GrammarLesson } from './pages/Grammar.jsx';
 import Practice from './pages/Practice.jsx';
 import Exam from './pages/Exam.jsx';
+import Reference from './pages/Reference.jsx';
 
 export default function App() {
   return (
@@ -12,6 +13,7 @@ export default function App() {
         <nav>
           <NavLink to="/" end>Dashboard</NavLink>
           <NavLink to="/grammar">Grammar</NavLink>
+          <NavLink to="/reference">Vocab and kanji</NavLink>
           <NavLink to="/practice">Practice</NavLink>
           <NavLink to="/exam">Mock exam</NavLink>
         </nav>
@@ -21,6 +23,7 @@ export default function App() {
           <Route path="/" element={<Dashboard />} />
           <Route path="/grammar" element={<GrammarList />} />
           <Route path="/grammar/:id" element={<GrammarLesson />} />
+          <Route path="/reference" element={<Reference />} />
           <Route path="/practice" element={<Practice />} />
           <Route path="/exam" element={<Exam />} />
         </Routes>

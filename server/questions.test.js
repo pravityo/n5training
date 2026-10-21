@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildExam, gradeExam, grammarQuestions, vocabQuestions, EXAM_PLAN } from './questions.js';
+import { buildExam, gradeExam, grammarQuestions, vocabQuestions, kanjiQuestions, EXAM_PLAN } from './questions.js';
 import { grammar } from './content/grammar.js';
 import { openDb } from './db.js';
 import { createApp } from './app.js';
@@ -19,6 +19,24 @@ test('shuffled questions keep the correct answer', () => {
     assert.equal(q.choices.length, 4);
     assert.equal(new Set(q.choices).size, 4, q.prompt);
   }
+});
+
+test('kanji questions have 4 unique choices and a correct answer', () => {
+  for (let i = 0; i < 20; i++) for (const q of kanjiQuestions(30)) {
+    assert.equal(q.choices.length, 4, q.prompt);
+    assert.equal(new Set(q.choices).size, 4, q.prompt);
+    assert.ok(q.choices[q.answer]);
+  }
+});
+
+test('content ids are unique', async () => {
+  const { vocab } = await import('./content/vocab.js');
+  const { listening } = await import('./content/listening.js');
+  const { reading } = await import('./content/reading.js');
+  for (const list of [vocab.map((v) => v.id), grammar.map((g) => g.id), listening.map((l) => l.id), reading.map((r) => r.id)]) {
+    assert.equal(new Set(list).size, list.length);
+  }
+  for (const l of listening) assert.ok(l.answer >= 0 && l.answer < l.choices.length, l.id);
 });
 
 test('exam has the planned size and grades correctly', () => {

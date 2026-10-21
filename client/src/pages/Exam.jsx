@@ -37,7 +37,7 @@ export default function Exam() {
       <>
         <h1>Mock exam</h1>
         <div className="card">
-          <p>58 questions in four sections: vocabulary, grammar, reading, listening. Time limit 40 minutes. The timer starts immediately and the exam submits itself at zero. Answers are only revealed after you submit.</p>
+          <p>66 questions: 25 vocabulary and kanji, 25 grammar, 8 reading, 8 listening. Time limit 50 minutes. The timer starts immediately and the exam submits itself at zero. Answers are only revealed after you submit.</p>
           <button className="btn primary" onClick={start}>Start exam</button>
         </div>
       </>

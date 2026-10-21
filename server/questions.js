@@ -2,6 +2,7 @@ import { grammar } from './content/grammar.js';
 import { vocab } from './content/vocab.js';
 import { listening } from './content/listening.js';
 import { reading } from './content/reading.js';
+import { kanji } from './content/kanji.js';
 
 export function shuffle(arr, rng = Math.random) {
   const a = [...arr];
@@ -68,6 +69,41 @@ export function vocabQuestions(n, rng = Math.random, category) {
   });
 }
 
+const allWords = kanji.flatMap((k) => k.words.map((w) => ({ ...w, kanji: k.char })));
+
+export function kanjiQuestion(k, kind, rng = Math.random) {
+  const others = kanji.filter((x) => x.id !== k.id);
+  const uniq = (vals, correct) => {
+    const out = [];
+    for (const v of vals) if (v !== correct && !out.includes(v)) out.push(v);
+    return out.slice(0, 3);
+  };
+  let prompt, correct, wrong, explain;
+  if (kind === 'meaning') {
+    prompt = `What does the kanji ${k.char} mean?`; correct = k.meaning;
+    wrong = uniq(shuffle(others, rng).map((x) => x.meaning), correct);
+    explain = `${k.char}: ${k.meaning} (on: ${k.on}; kun: ${k.kun || 'none at N5'})`;
+  } else if (kind === 'char') {
+    prompt = `Which kanji means "${k.meaning}"?`; correct = k.char;
+    wrong = uniq(shuffle(others, rng).map((x) => x.char), correct);
+    explain = `${k.char}: ${k.meaning} (on: ${k.on}; kun: ${k.kun || 'none at N5'})`;
+  } else {
+    const w = k.words[Math.floor(rng() * k.words.length)];
+    prompt = `How is 「${w.ja}」 (${w.en}) read?`; correct = w.kana;
+    wrong = uniq(shuffle(allWords, rng).map((x) => x.kana), correct);
+    explain = `${w.ja} = ${w.kana} (${w.en}); kanji ${k.char} means ${k.meaning}`;
+  }
+  return withShuffledChoices({
+    key: `k:${k.id}:${kind}`, section: 'vocab', tag: 'kanji',
+    prompt, choices: [correct, ...wrong], answer: 0, explain,
+  }, rng);
+}
+
+export function kanjiQuestions(n, rng = Math.random) {
+  const kinds = ['meaning', 'char', 'word'];
+  return pick(kanji, n, rng).map((k) => kanjiQuestion(k, kinds[Math.floor(rng() * kinds.length)], rng));
+}
+
 export function readingQuestions(n, rng = Math.random) {
   const out = [];
   for (const p of reading) {
@@ -87,11 +123,12 @@ export function listeningQuestions(n, rng = Math.random) {
   }, rng));
 }
 
-export const EXAM_PLAN = { vocab: 20, grammar: 20, reading: 6, listening: 6 };
+export const EXAM_PLAN = { vocab: 15, kanji: 10, grammar: 25, reading: 8, listening: 8 };
 
 export function buildExam(rng = Math.random, plan = EXAM_PLAN) {
   return [
     ...vocabQuestions(plan.vocab, rng),
+    ...kanjiQuestions(plan.kanji, rng),
     ...pick(grammarQuestions(rng), plan.grammar, rng),
     ...readingQuestions(plan.reading, rng),
     ...listeningQuestions(plan.listening, rng),

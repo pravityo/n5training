@@ -1,11 +1,12 @@
 import express from 'express';
 import { grammar } from './content/grammar.js';
 import { vocab } from './content/vocab.js';
+import { kanji } from './content/kanji.js';
 import {
-  grammarQuestions, vocabQuestions, readingQuestions, listeningQuestions, buildExam, publicQuestion, gradeExam, shuffle, EXAM_PLAN,
+  grammarQuestions, vocabQuestions, kanjiQuestions, readingQuestions, listeningQuestions, buildExam, publicQuestion, gradeExam, shuffle, EXAM_PLAN,
 } from './questions.js';
 
-const EXAM_SECONDS = 40 * 60;
+const EXAM_SECONDS = 50 * 60;
 
 export function createApp(db) {
   const app = express();
@@ -31,9 +32,10 @@ export function createApp(db) {
     let qs;
     if (kind === 'grammar') qs = shuffle(grammarQuestions(Math.random, topic || undefined)).slice(0, count);
     else if (kind === 'vocab') qs = vocabQuestions(count, Math.random, topic || undefined);
+    else if (kind === 'kanji') qs = kanjiQuestions(count);
     else if (kind === 'reading') qs = readingQuestions(count);
     else if (kind === 'listening') qs = listeningQuestions(count);
-    else return res.status(400).json({ error: 'kind must be grammar, vocab, reading or listening' });
+    else return res.status(400).json({ error: 'kind must be grammar, vocab, kanji, reading or listening' });
     res.json(qs);
   });
 
@@ -50,6 +52,8 @@ export function createApp(db) {
     const { cat } = req.query;
     res.json(cat ? vocab.filter((v) => v.cat === cat) : vocab);
   });
+
+  app.get('/api/kanji', (_req, res) => res.json(kanji));
 
   app.post('/api/exams', (_req, res) => {
     const questions = buildExam();

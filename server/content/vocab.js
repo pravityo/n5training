@@ -1,3 +1,5 @@
+import { extraRows } from './vocab-extra.js';
+
 // [written form, kana reading, English, category]
 // If the written form equals the kana, the word has no kanji.
 const rows = [
@@ -48,6 +50,10 @@ const rows = [
   ['左', 'ひだり', 'left', 'misc'], ['前', 'まえ', 'front, before', 'misc'], ['後ろ', 'うしろ', 'behind', 'misc'], ['外', 'そと', 'outside', 'misc'],
 ];
 
-export const vocab = rows.map(([ja, kana, en, cat], i) => ({
+// Homographs (same written form, different reading or meaning) would make questions ambiguous, so the first wins.
+const seen = new Set();
+const unique = [...rows, ...extraRows].filter(([ja]) => !seen.has(ja) && seen.add(ja));
+
+export const vocab = unique.map(([ja, kana, en, cat], i) => ({
   id: i + 1, ja, kana, en, cat, hasKanji: ja !== kana,
 }));

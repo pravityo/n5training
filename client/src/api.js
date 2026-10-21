@@ -11,6 +11,7 @@ export const api = {
   practice: (kind, topic, n = 10) => req(`/api/practice?kind=${kind}&n=${n}${topic ? `&topic=${topic}` : ''}`),
   attempt: (a) => post('/api/attempts', a),
   vocab: () => req('/api/vocab'),
+  kanji: () => req('/api/kanji'),
   newExam: () => post('/api/exams', {}),
   submitExam: (id, answers) => post(`/api/exams/${id}/submit`, { answers }),
   stats: () => req('/api/stats'),
