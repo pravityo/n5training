@@ -4,6 +4,7 @@ Personal JLPT N5 study platform. Express + node:sqlite backend, React (Vite) fro
 
 ```
 npm install
+npm run local   # build and serve everything at http://localhost:3001
 npm run dev      # API on :3001, client on :5173
 npm run build && npm start   # single server on :3001
 npm test
