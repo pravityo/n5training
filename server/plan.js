@@ -60,6 +60,7 @@ export function buildPlan({ startDay, examDay, includeN4 = false }) {
 
     if (i < learnDays) {
       phase = 'learn';
+      tasks.push(task('cards', 'practice', 'Flashcard reviews', 10, '/cards'));
       const gr = gSlices[i];
       if (gr) {
         const ids = gl.slice(gr[0] - 1, gr[1]);
@@ -105,6 +106,7 @@ export function buildPlan({ startDay, examDay, includeN4 = false }) {
       if (mock) {
         tasks.push(task('mock', 'mock', 'Full mock exam (50 min), then review every mistake', 80, '/exam'));
       } else {
+        tasks.push(task('cards', 'practice', 'Flashcard reviews', 10, '/cards'));
         tasks.push(task('weak', 'practice', 'Weak-spot drill (15 questions)', 10, '/practice?kind=weak&n=15'));
         tasks.push(task('grammar-mixed', 'practice', 'Mixed grammar (15 questions)', 10, '/practice?kind=grammar&n=15'));
         tasks.push(task('vocab-mixed', 'practice', 'Mixed vocabulary (20 questions)', 10, '/practice?kind=vocab&n=20'));

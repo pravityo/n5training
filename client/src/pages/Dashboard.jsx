@@ -2,11 +2,14 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 
+const localDay = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const pct = (x) => `${Math.round(x * 100)}%`;
 
 export default function Dashboard() {
   const [s, setS] = useState(null);
+  const [cards, setCards] = useState(null);
   const [grammarIds, setGrammarIds] = useState(new Set());
+  useEffect(() => { api.srsStats(localDay()).then(setCards).catch(() => {}); }, []);
   useEffect(() => { api.stats().then(setS).catch(() => setS({ byTag: [], weak: [], exams: [], days: [] })); }, []);
   useEffect(() => { api.grammarList().then((l) => setGrammarIds(new Set(l.map((g) => g.id)))).catch(() => {}); }, []);
   if (!s) return <p>Loading…</p>;
@@ -20,6 +23,12 @@ export default function Dashboard() {
         <div className="card"><div className="big">{total ? pct(correct / total) : '-'}</div><div className="muted">overall accuracy</div></div>
         <div className="card"><div className="big">{s.exams.length}</div><div className="muted">mock exams taken</div></div>
       </div>
+
+      {cards && (
+        <Link to="/cards" className="card link">
+          <strong>Flashcards</strong>: {cards.due} due today, {cards.total} of {cards.available} cards started, {cards.mature} mature.
+        </Link>
+      )}
 
       <h2>Weak spots</h2>
       {s.weak.length === 0 ? <p className="muted">Answer a few questions and weak topics will show up here.</p> : (

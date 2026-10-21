@@ -130,3 +130,50 @@ test('plan API: settings, completion and weak-spot practice', async () => {
     assert.ok(range.every((q) => Number(q.key.split(':')[1]) <= 12));
   } finally { server.close(); }
 });
+
+import { schedule, cardFor, allKeys } from './srs.js';
+
+test('srs scheduling grows intervals on good answers and resets on again', () => {
+  const t = '2026-11-01';
+  let c = schedule(null, 'good', t);
+  assert.deepEqual([c.interval, c.due], [1, '2026-11-02']);
+  c = schedule(c, 'good', '2026-11-02');
+  assert.equal(c.interval, 3);
+  c = schedule(c, 'good', '2026-11-05');
+  assert.equal(c.interval, Math.round(3 * 2.5));
+  const lapsed = schedule(c, 'again', '2026-11-13');
+  assert.deepEqual([lapsed.interval, lapsed.reps, lapsed.lapses, lapsed.due], [0, 0, 1, '2026-11-13']);
+  assert.ok(lapsed.ease < c.ease && lapsed.ease >= 1.3);
+  assert.ok(schedule(c, 'easy', t).interval > schedule(c, 'good', t).interval);
+  assert.ok(schedule(c, 'hard', t).interval >= 1);
+  let e = { ease: 1.3, interval: 1, reps: 5, lapses: 0 };
+  for (let i = 0; i < 10; i++) e = schedule(e, 'again', t);
+  assert.equal(e.ease, 1.3);
+});
+
+test('every flashcard key resolves to a card', () => {
+  for (const k of allKeys('all')) assert.ok(cardFor(k), k);
+  assert.equal(allKeys('all').length, allKeys('vocab').length + allKeys('kanji').length);
+});
+
+test('srs API: new cards, grading, due logic', async () => {
+  const app = createApp(openDb(':memory:'));
+  const server = app.listen(0);
+  const base = `http://localhost:${server.address().port}`;
+  const post = (p, b) => fetch(base + p, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(b) });
+  try {
+    const s1 = await (await fetch(`${base}/api/srs/session?source=vocab&newLimit=3&today=2026-11-01`)).json();
+    assert.equal(s1.cards.length, 3);
+    assert.ok(s1.cards.every((c) => c.isNew && c.type === 'vocab'));
+    assert.equal((await post('/api/srs/grade', { key: s1.cards[0].key, grade: 'nope', today: '2026-11-01' })).status, 400);
+    const g = await (await post('/api/srs/grade', { key: s1.cards[0].key, grade: 'good', today: '2026-11-01' })).json();
+    assert.equal(g.due, '2026-11-02');
+    await post('/api/srs/grade', { key: s1.cards[1].key, grade: 'again', today: '2026-11-01' });
+    const same = await (await fetch(`${base}/api/srs/session?source=vocab&newLimit=0&today=2026-11-01`)).json();
+    assert.deepEqual(same.cards.map((c) => c.key), [s1.cards[1].key]);
+    const next = await (await fetch(`${base}/api/srs/session?source=vocab&newLimit=0&today=2026-11-02`)).json();
+    assert.equal(next.dueCount, 2);
+    const st = await (await fetch(`${base}/api/srs/stats?today=2026-11-02`)).json();
+    assert.deepEqual([st.total, st.due], [2, 2]);
+  } finally { server.close(); }
+});

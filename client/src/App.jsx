@@ -5,6 +5,7 @@ import Practice from './pages/Practice.jsx';
 import Exam from './pages/Exam.jsx';
 import Reference from './pages/Reference.jsx';
 import Plan from './pages/Plan.jsx';
+import Cards from './pages/Cards.jsx';
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
         <nav>
           <NavLink to="/" end>Dashboard</NavLink>
           <NavLink to="/plan">Study plan</NavLink>
+          <NavLink to="/cards">Flashcards</NavLink>
           <NavLink to="/grammar">Grammar</NavLink>
           <NavLink to="/reference">Vocab and kanji</NavLink>
           <NavLink to="/practice">Practice</NavLink>
@@ -24,6 +26,7 @@ export default function App() {
         <Routes>
           <Route path="/" element={<Dashboard />} />
           <Route path="/plan" element={<Plan />} />
+          <Route path="/cards" element={<Cards />} />
           <Route path="/grammar" element={<GrammarList />} />
           <Route path="/grammar/:id" element={<GrammarLesson />} />
           <Route path="/reference" element={<Reference />} />

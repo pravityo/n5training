@@ -22,3 +22,6 @@ Listening uses browser speech synthesis, so a Japanese voice must be installed o
 
 ## Study plan
 `/plan` builds a day-by-day schedule from your exam date (`server/plan.js`). About 65% of the days introduce grammar, vocabulary and N5 kanji with quizzes; the rest are weak-spot drills and mixed practice, with a mock exam every 7th day and two days before the exam. The day before is light. Tick tasks off, and unfinished ones show up under "Catch up". Optional N4 kanji appear as stretch tasks.
+
+## Flashcards
+`/cards` is a spaced-repetition deck over all vocabulary and kanji (SM-2 style, `server/srs.js`). New cards follow study-plan order, cards you miss come back later in the same session, and the plan schedules a daily review task.

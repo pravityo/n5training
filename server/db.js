@@ -20,6 +20,15 @@ export function openDb(file = process.env.DB_FILE || 'n5.db') {
       questions TEXT NOT NULL,
       result TEXT
     );
+    CREATE TABLE IF NOT EXISTS srs (
+      key TEXT PRIMARY KEY,
+      ease REAL NOT NULL,
+      interval INTEGER NOT NULL,
+      reps INTEGER NOT NULL,
+      lapses INTEGER NOT NULL,
+      due TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS srs_due ON srs(due);
     CREATE TABLE IF NOT EXISTS settings (
       key TEXT PRIMARY KEY,
       value TEXT NOT NULL

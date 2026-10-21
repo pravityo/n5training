@@ -2,6 +2,7 @@ import express from 'express';
 import { grammar } from './content/grammar.js';
 import { vocab } from './content/vocab.js';
 import { kanji } from './content/kanji.js';
+import { schedule, cardFor, allKeys, GRADES } from './srs.js';
 import { buildPlan, parseDay, fmtDay, daysBetween } from './plan.js';
 import {
   grammarQuestions, vocabQuestions, kanjiQuestions, readingQuestions, listeningQuestions, buildExam, publicQuestion, gradeExam, shuffle, EXAM_PLAN,
@@ -127,6 +128,48 @@ export function createApp(db) {
     `).all();
     const weak = byTag.filter((t) => t.total >= 3).sort((a, b) => a.accuracy - b.accuracy).slice(0, 5);
     res.json({ byTag, weak, exams, days });
+  });
+
+  // Spaced repetition flashcards for vocabulary and kanji.
+  const dayParam = (v) => (Number.isNaN(parseDay(v)) ? fmtDay(Date.now()) : v);
+  const srsSources = new Set(['vocab', 'kanji', 'all']);
+
+  app.get('/api/srs/session', (req, res) => {
+    const source = srsSources.has(req.query.source) ? req.query.source : 'all';
+    const today = dayParam(req.query.today);
+    const parsedNew = parseInt(req.query.newLimit, 10);
+    const newLimit = Math.min(Math.max(Number.isNaN(parsedNew) ? 10 : parsedNew, 0), 50);
+    const keys = allKeys(source);
+    const inSource = new Set(keys);
+    const rows = db.prepare('SELECT key, due FROM srs').all();
+    const known = new Set(rows.map((r) => r.key));
+    const due = rows.filter((r) => r.due <= today && inSource.has(r.key)).sort((a, b) => a.due.localeCompare(b.due)).map((r) => r.key);
+    const fresh = keys.filter((k) => !known.has(k)).slice(0, newLimit);
+    res.json({
+      dueCount: due.length, newCount: fresh.length,
+      cards: [...due.slice(0, 100).map((k) => ({ ...cardFor(k), isNew: false })), ...fresh.map((k) => ({ ...cardFor(k), isNew: true }))],
+    });
+  });
+
+  app.post('/api/srs/grade', (req, res) => {
+    const { key, grade } = req.body ?? {};
+    const today = dayParam(req.body?.today);
+    if (!GRADES.includes(grade) || typeof key !== 'string' || !cardFor(key)) return res.status(400).json({ error: 'valid key and grade required' });
+    const cur = db.prepare('SELECT * FROM srs WHERE key = ?').get(key);
+    const next = schedule(cur, grade, today);
+    db.prepare(`INSERT INTO srs (key, ease, interval, reps, lapses, due) VALUES (?, ?, ?, ?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET ease = excluded.ease, interval = excluded.interval, reps = excluded.reps, lapses = excluded.lapses, due = excluded.due`)
+      .run(key, next.ease, next.interval, next.reps, next.lapses, next.due);
+    record.run(Date.now(), 'srs', key, key.startsWith('k:') ? 'kanji' : cardFor(key).hint, grade === 'again' ? 0 : 1);
+    res.json({ interval: next.interval, due: next.due });
+  });
+
+  app.get('/api/srs/stats', (req, res) => {
+    const today = dayParam(req.query.today);
+    const total = db.prepare('SELECT COUNT(*) AS n FROM srs').get().n;
+    const due = db.prepare('SELECT COUNT(*) AS n FROM srs WHERE due <= ?').get(today).n;
+    const mature = db.prepare('SELECT COUNT(*) AS n FROM srs WHERE interval >= 21').get().n;
+    res.json({ total, due, mature, available: allKeys('all').length });
   });
 
   // Study plan: settings plus per-day task completion. The schedule itself is derived, not stored.
